@@ -12,6 +12,7 @@ use tracing::{debug, field, info, trace, warn};
 pub struct AddCorsHeadersConfig {
     pub proxy_to: std::net::SocketAddr,
     pub host_allowlist: HashSet<String>,
+    pub force_tls: bool,
 }
 
 #[derive(Debug)]
@@ -25,6 +26,22 @@ impl AddCorsHeaders {
             config,
             use_tls: AtomicBool::new(true),
         }
+    }
+
+    fn using_tls(&self) -> bool {
+        self.config.force_tls || self.use_tls.load(Ordering::Relaxed)
+    }
+
+    fn set_use_tls(&self, use_tls: bool) -> bool {
+        if self.config.force_tls {
+            debug!("Force TLS is enabled, not setting use_tls to {}", use_tls);
+            return true;
+        }
+
+        debug!("Setting use_tls to {}", use_tls);
+        self.use_tls.store(use_tls, Ordering::Relaxed);
+
+        use_tls
     }
 }
 
@@ -136,7 +153,7 @@ impl ProxyHttp for AddCorsHeaders {
     ) -> Result<Box<HttpPeer>> {
         let _span = ctx.tracing_span.enter();
 
-        let peer = if self.use_tls.load(Ordering::Relaxed) {
+        let peer = if self.using_tls() {
             HttpPeer::new(self.config.proxy_to, true, String::new())
         } else {
             HttpPeer::new(self.config.proxy_to, false, String::new())
@@ -228,14 +245,10 @@ impl ProxyHttp for AddCorsHeaders {
         ctx: &mut Self::CTX,
         e: Box<Error>,
     ) -> Box<Error> {
-        let use_tls = { self.use_tls.load(Ordering::Relaxed) };
-        debug!(ctx = ?ctx, ?e, ?use_tls, "Failed to connect to upstream");
+        let use_tls = self.using_tls();
+        debug!(?ctx, ?e, ?use_tls, "Failed to connect to upstream");
 
-        if use_tls {
-            self.use_tls.store(false, Ordering::Relaxed);
-
-            debug!("Setting use_tls to false");
-
+        if use_tls && !self.set_use_tls(false) {
             let mut e = e.into_down();
             e.set_retry(true);
 

@@ -22,6 +22,12 @@ pub struct ProxyArgs {
         env = "CORS_PROXY_HOST_ALLOWLIST"
     )]
     pub host_allowlist: Option<Vec<String>>,
+
+    /// Force all proxyed requests to use TLS.
+    ///
+    /// By default, TLS is first tried and falls back to plain HTTP.
+    #[clap(long, env = "CORS_PROXY_FORCE_TLS")]
+    pub force_tls: bool,
 }
 impl ProxyArgs {
     pub fn to_config(&self) -> ProxyConfig {
@@ -34,6 +40,8 @@ pub struct ProxyConfig {
     pub proxy_to: std::net::SocketAddr,
 
     pub host_allowlist: HashSet<String>,
+
+    pub force_tls: bool,
 }
 impl ProxyConfig {
     fn from_args(args: &ProxyArgs) -> Self {
@@ -51,6 +59,7 @@ impl ProxyConfig {
                         .collect::<Vec<_>>()
                 })
                 .collect(),
+            force_tls: args.force_tls,
         }
     }
 
@@ -58,6 +67,7 @@ impl ProxyConfig {
         AddCorsHeadersConfig {
             proxy_to: self.proxy_to,
             host_allowlist: self.host_allowlist.clone().into_iter().collect(),
+            force_tls: self.force_tls,
         }
     }
 }

@@ -4,6 +4,9 @@ A simple proxy that adds all possible CORS headers to proxied responses.
 
 Currently trues to use TLS on first connection and falls back to plain HTTP.
 
+It is also possible to set an allowlist for which hosts are allowed to be proxied.
+Eg. only allow requests to `allypost.net` and `www.allypost.net`.
+
 ## Usage
 
 Running

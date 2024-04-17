@@ -11,7 +11,7 @@ use tracing::{debug, field, info, trace, warn};
 #[derive(Debug, Clone)]
 pub struct AddCorsHeadersConfig {
     pub proxy_to: std::net::SocketAddr,
-    pub host_whitelist: HashSet<String>,
+    pub host_allowlist: HashSet<String>,
 }
 
 #[derive(Debug)]
@@ -69,10 +69,10 @@ impl ProxyHttp for AddCorsHeaders {
 
         info!("Incoming request");
 
-        let whitelist = &self.config.host_whitelist;
+        let allowlist = &self.config.host_allowlist;
 
-        if whitelist.is_empty() {
-            trace!("Host whitelist is empty");
+        if allowlist.is_empty() {
+            trace!("Host allowlist is empty");
             return Ok(false);
         }
 
@@ -110,14 +110,14 @@ impl ProxyHttp for AddCorsHeaders {
 
         debug!(host = ?request_host, "Got host header");
 
-        if !whitelist.contains(&request_host) {
+        if !allowlist.contains(&request_host) {
             debug!(
                 host = ?request_host,
-                whitelist = ?whitelist,
-                "Host header not in whitelist"
+                ?allowlist,
+                "Host header not in allowlist"
             );
 
-            info!(host = ?request_host, "Host header not in whitelist");
+            info!(host = ?request_host, "Host header not in allowlist");
 
             session
                 .respond_error(http::StatusCode::BAD_REQUEST.as_u16())

@@ -19,9 +19,9 @@ pub struct ProxyArgs {
         short = 'H',
         long,
         value_name = "HOST",
-        env = "CORS_PROXY_HOST_WHITELIST"
+        env = "CORS_PROXY_HOST_ALLOWLIST"
     )]
-    pub host_whitelist: Option<Vec<String>>,
+    pub host_allowlist: Option<Vec<String>>,
 }
 impl ProxyArgs {
     pub fn to_config(&self) -> ProxyConfig {
@@ -33,14 +33,14 @@ impl ProxyArgs {
 pub struct ProxyConfig {
     pub proxy_to: std::net::SocketAddr,
 
-    pub host_whitelist: HashSet<String>,
+    pub host_allowlist: HashSet<String>,
 }
 impl ProxyConfig {
     fn from_args(args: &ProxyArgs) -> Self {
         Self {
             proxy_to: args.proxy_to,
-            host_whitelist: args
-                .host_whitelist
+            host_allowlist: args
+                .host_allowlist
                 .clone()
                 .unwrap_or_default()
                 .into_iter()
@@ -57,7 +57,7 @@ impl ProxyConfig {
     pub fn as_add_cors_headers_config(&self) -> AddCorsHeadersConfig {
         AddCorsHeadersConfig {
             proxy_to: self.proxy_to,
-            host_whitelist: self.host_whitelist.clone().into_iter().collect(),
+            host_allowlist: self.host_allowlist.clone().into_iter().collect(),
         }
     }
 }

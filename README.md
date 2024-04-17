@@ -1,5 +1,8 @@
 # CORS Proxy
 
+[![Build Status](https://drone.allypost.net/api/badges/Allypost/cors-proxy/status.svg)](https://drone.allypost.net/Allypost/cors-proxy)
+[![Docker image size](https://img.shields.io/docker/image-size/allypost/cors-proxy)](https://hub.docker.com/r/allypost/cors-proxy)
+
 A simple proxy that adds all possible CORS headers to proxied responses.
 
 Currently trues to use TLS on first connection and falls back to plain HTTP.

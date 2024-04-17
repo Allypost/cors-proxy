@@ -1,4 +1,6 @@
 /target
+/README.md
+/.drone.yml
 
 /.docker
 /.dockerignore

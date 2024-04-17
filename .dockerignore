@@ -1,0 +1,13 @@
+/target
+
+/.docker
+/.dockerignore
+/compose.yaml
+/compose.*.yaml
+/docker-compose.yaml
+/docker-compose.*.yaml
+
+/.git
+/.gitignore
+
+/.drone.yml

@@ -1,0 +1,39 @@
+[package]
+name = "cors-proxy"
+description = "Add all CORS headers to responses from proxied servers"
+version = "0.1.0"
+edition = "2021"
+license = "MPL-2.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+async-trait = "0.1.80"
+clap = { version = "4.5.4", features = ["derive", "env"] }
+http = "1.1.0"
+num_cpus = "1.16.0"
+once_cell = { version = "1.19.0", features = ["parking_lot"] }
+pingora = { version = "0.1.0", features = ["proxy"] }
+tracing = { version = "0.1.40", features = ["log"] }
+tracing-subscriber = { version = "0.3.18", features = ["env-filter", "parking_lot", "smallvec"] }
+uuid = { version = "1.8.0", features = ["v7", "fast-rng"] }
+
+[lints.clippy]
+nursery = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+module_name_repetitions = "allow"
+single_match_else = "allow"
+manual_let_else = "allow"
+uninlined_format_args = "allow"
+missing_panics_doc = "allow"
+missing_errors_doc = "allow"
+no_effect_underscore_binding = "allow"
+cognitive_complexity = "allow"
+
+[profile.release]
+strip = true
+# opt-level = "s"
+lto = "thin"
+# panic = "abort"
+codegen-units = 1

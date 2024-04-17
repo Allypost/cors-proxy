@@ -9,7 +9,13 @@ Eg. only allow requests to `allypost.net` and `www.allypost.net`.
 
 ## Usage
 
-Running
+```bash
+cargo run -- --help
+```
+
+Should print out the help text with all available options and explanations.
+
+------------------
 
 ```bash
 cargo run -- --port 8000 --proxy-to localhost:3000
@@ -42,6 +48,8 @@ and you should see something like the following in your proxy logs
 2024-04-16T09:15:17.819462Z  INFO req{t=127.0.0.1:3000 id=018ee6306fbb797f850d789f97c326bb m=GET p=/}: cors_proxy::services::add_cors_headers: Incoming request
 2024-04-16T09:15:17.822085Z  INFO req{t=127.0.0.1:3000 id=018ee6306fbb797f850d789f97c326bb m=GET p=/ dur=1.655978ms}: cors_proxy::services::add_cors_headers: Done
 ```
+
+------------------
 
 If you send a request with an `Origin` header, you get a specific CORS response:
 

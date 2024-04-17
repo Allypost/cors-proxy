@@ -1,4 +1,7 @@
-use std::collections::HashSet;
+use std::{
+    collections::HashSet,
+    sync::atomic::{AtomicBool, Ordering},
+};
 
 use async_trait::async_trait;
 use http::header;
@@ -14,10 +17,14 @@ pub struct AddCorsHeadersConfig {
 #[derive(Debug)]
 pub struct AddCorsHeaders {
     config: AddCorsHeadersConfig,
+    use_tls: AtomicBool,
 }
 impl AddCorsHeaders {
-    pub const fn new(config: AddCorsHeadersConfig) -> Self {
-        Self { config }
+    pub fn new(config: AddCorsHeadersConfig) -> Self {
+        Self {
+            config,
+            use_tls: AtomicBool::new(true),
+        }
     }
 }
 
@@ -129,7 +136,11 @@ impl ProxyHttp for AddCorsHeaders {
     ) -> Result<Box<HttpPeer>> {
         let _span = ctx.tracing_span.enter();
 
-        let peer = HttpPeer::new(self.config.proxy_to, false, String::new());
+        let peer = if self.use_tls.load(Ordering::Relaxed) {
+            HttpPeer::new(self.config.proxy_to, true, String::new())
+        } else {
+            HttpPeer::new(self.config.proxy_to, false, String::new())
+        };
 
         trace!(peer = ?peer, "Created peer");
 
@@ -208,6 +219,36 @@ impl ProxyHttp for AddCorsHeaders {
         upstream_response.append_header("X-CorsProxy-Request-Id", ctx.request_id.to_string())?;
 
         Ok(())
+    }
+
+    fn fail_to_connect(
+        &self,
+        _session: &mut Session,
+        _peer: &HttpPeer,
+        ctx: &mut Self::CTX,
+        e: Box<Error>,
+    ) -> Box<Error> {
+        let use_tls = { self.use_tls.load(Ordering::Relaxed) };
+        debug!(ctx = ?ctx, ?e, ?use_tls, "Failed to connect to upstream");
+
+        if use_tls {
+            self.use_tls.store(false, Ordering::Relaxed);
+
+            debug!("Setting use_tls to false");
+
+            let mut e = e.into_down();
+            e.set_retry(true);
+
+            return e;
+        }
+
+        warn!(
+            ctx = ?ctx,
+            ?e,
+            "Failed to connect to upstream. Aborting request."
+        );
+
+        e
     }
 
     async fn logging(&self, _session: &mut Session, err: Option<&Error>, ctx: &mut Self::CTX) {

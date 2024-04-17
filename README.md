@@ -2,7 +2,7 @@
 
 A simple proxy that adds all possible CORS headers to proxied responses.
 
-Currently limited to HTTP only.
+Currently trues to use TLS on first connection and falls back to plain HTTP.
 
 ## Usage
 

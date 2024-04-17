@@ -12,6 +12,7 @@ fn main() {
     init_log();
 
     info!("Starting server");
+    debug!(config=?*CONFIG, "Starting server");
 
     let mut server = {
         let opt = CONFIG.pingora.as_pingora_opt();

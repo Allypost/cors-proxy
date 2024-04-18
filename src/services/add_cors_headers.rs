@@ -1,6 +1,7 @@
 use std::{
     collections::HashSet,
     sync::atomic::{AtomicBool, Ordering},
+    time::Duration,
 };
 
 use async_trait::async_trait;
@@ -153,10 +154,17 @@ impl ProxyHttp for AddCorsHeaders {
     ) -> Result<Box<HttpPeer>> {
         let _span = ctx.tracing_span.enter();
 
-        let peer = if self.using_tls() {
-            HttpPeer::new(self.config.proxy_to, true, String::new())
-        } else {
-            HttpPeer::new(self.config.proxy_to, false, String::new())
+        let peer = {
+            let mut peer = if self.using_tls() {
+                HttpPeer::new(self.config.proxy_to, true, String::new())
+            } else {
+                HttpPeer::new(self.config.proxy_to, false, String::new())
+            };
+
+            peer.options.connection_timeout = Some(Duration::from_secs(5));
+            peer.options.total_connection_timeout = Some(Duration::from_secs(10));
+
+            peer
         };
 
         trace!(peer = ?peer, "Created peer");

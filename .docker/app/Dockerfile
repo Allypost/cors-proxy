@@ -96,4 +96,3 @@ USER ${RUN_USERNAME}
 LABEL org.opencontainers.image.authors="me@allypost.net"
 EXPOSE 8000
 ENTRYPOINT [ "/entrypoint.sh" ]
-CMD [ "--help" ]

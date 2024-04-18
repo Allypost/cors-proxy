@@ -1,28 +1,19 @@
-use std::{
-    collections::HashSet,
-    sync::atomic::{AtomicBool, Ordering},
-    time::Duration,
-};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use async_trait::async_trait;
 use http::header;
 use pingora::{http::ResponseHeader, prelude::*};
 use tracing::{debug, field, info, trace, warn};
 
-#[derive(Debug, Clone)]
-pub struct AddCorsHeadersConfig {
-    pub proxy_to: std::net::SocketAddr,
-    pub host_allowlist: HashSet<String>,
-    pub force_tls: bool,
-}
+use crate::config::common::proxy::ProxyConfig;
 
 #[derive(Debug)]
 pub struct AddCorsHeaders {
-    config: AddCorsHeadersConfig,
+    config: ProxyConfig,
     use_tls: AtomicBool,
 }
 impl AddCorsHeaders {
-    pub fn new(config: AddCorsHeadersConfig) -> Self {
+    pub fn new(config: ProxyConfig) -> Self {
         Self {
             config,
             use_tls: AtomicBool::new(true),
@@ -30,11 +21,15 @@ impl AddCorsHeaders {
     }
 
     fn using_tls(&self) -> bool {
-        self.config.force_tls || self.use_tls.load(Ordering::Relaxed)
+        if let Some(use_tls) = self.config.use_tls {
+            return use_tls;
+        }
+
+        self.use_tls.load(Ordering::Relaxed)
     }
 
     fn set_use_tls(&self, use_tls: bool) -> bool {
-        if self.config.force_tls {
+        if self.config.use_tls.unwrap_or_default() {
             debug!("Force TLS is enabled, not setting use_tls to {}", use_tls);
             return true;
         }
@@ -53,7 +48,7 @@ pub struct AddCorsHeadersCtx {
     tracing_span: tracing::Span,
 }
 impl AddCorsHeadersCtx {
-    fn new(config: &AddCorsHeadersConfig) -> Self {
+    fn new(config: &ProxyConfig) -> Self {
         let t = config.proxy_to;
         let m = field::Empty;
         let p = field::Empty;
@@ -161,8 +156,9 @@ impl ProxyHttp for AddCorsHeaders {
                 HttpPeer::new(self.config.proxy_to, false, String::new())
             };
 
-            peer.options.connection_timeout = Some(Duration::from_secs(5));
-            peer.options.total_connection_timeout = Some(Duration::from_secs(10));
+            peer.options.connection_timeout = Some(self.config.connection_timeout);
+            peer.options.total_connection_timeout = Some(self.config.total_connection_timeout);
+            peer.options.idle_timeout = self.config.idle_timeout;
 
             peer
         };

@@ -1,8 +1,11 @@
-use std::{collections::HashSet, net::ToSocketAddrs, string::ToString};
+use std::{
+    collections::HashSet, convert::Into, net::ToSocketAddrs, string::ToString, time::Duration,
+};
 
-use crate::services::add_cors_headers::AddCorsHeadersConfig;
+use super::timeframe::Timeframe;
 
 #[derive(Debug, Clone, clap::Args)]
+#[clap(next_help_heading = "Proxy options")]
 pub struct ProxyArgs {
     /// The address to proxy requests to.
     ///
@@ -21,13 +24,58 @@ pub struct ProxyArgs {
         value_name = "HOST",
         env = "CORS_PROXY_HOST_ALLOWLIST"
     )]
-    pub host_allowlist: Option<Vec<String>>,
+    pub host_allowlist: Vec<String>,
 
-    /// Force all proxyed requests to use TLS.
+    /// Explicitly set whether to use TLS on first connection.
     ///
     /// By default, TLS is first tried and falls back to plain HTTP.
-    #[clap(long, env = "CORS_PROXY_FORCE_TLS")]
-    pub force_tls: bool,
+    #[clap(
+        long,
+        env = "CORS_PROXY_USE_TLS",
+        num_args(0..=1),
+        hide_possible_values = true,
+        default_missing_value = "true"
+    )]
+    pub use_tls: Option<bool>,
+
+    /// How long connect() call should be wait
+    /// before it returns a timeout error.
+    ///
+    /// Eg. `300ms` or `5s``
+    ///
+    /// Defaults to `5s`
+    #[clap(
+        long,
+        value_parser = Timeframe::parse_str,
+        default_value = "5s",
+        env = "CORS_PROXY_CONNECTION_TIMEOUT"
+    )]
+    pub connection_timeout: Timeframe,
+
+    /// How long the overall connection establishment should take
+    /// before a timeout error is returned.
+    ///
+    /// Eg. `300ms` or `5s`
+    ///
+    /// Defaults to `10s`
+    #[clap(
+        long,
+        value_parser = Timeframe::parse_str,
+        default_value = "10s",
+        env = "CORS_PROXY_TOTAL_CONNECTION_TIMEOUT"
+    )]
+    pub total_connection_timeout: Timeframe,
+
+    /// If the connection can be reused, how long the connection should wait
+    /// to be reused before it shuts down.
+    ///
+    /// Eg. `300ms` or `5s`
+    #[clap(
+        long,
+        value_parser = Timeframe::parse_str,
+        env = "CORS_PROXY_IDLE_TIMEOUT"
+    )]
+    pub idle_timeout: Option<Timeframe>,
 }
 impl ProxyArgs {
     pub fn to_config(&self) -> ProxyConfig {
@@ -41,7 +89,13 @@ pub struct ProxyConfig {
 
     pub host_allowlist: HashSet<String>,
 
-    pub force_tls: bool,
+    pub use_tls: Option<bool>,
+
+    pub connection_timeout: Duration,
+
+    pub total_connection_timeout: Duration,
+
+    pub idle_timeout: Option<Duration>,
 }
 impl ProxyConfig {
     fn from_args(args: &ProxyArgs) -> Self {
@@ -50,7 +104,6 @@ impl ProxyConfig {
             host_allowlist: args
                 .host_allowlist
                 .clone()
-                .unwrap_or_default()
                 .into_iter()
                 .flat_map(|x| {
                     x.split_terminator(',')
@@ -59,22 +112,11 @@ impl ProxyConfig {
                         .collect::<Vec<_>>()
                 })
                 .collect(),
-            force_tls: args.force_tls,
+            use_tls: args.use_tls,
+            connection_timeout: args.connection_timeout.into(),
+            total_connection_timeout: args.total_connection_timeout.into(),
+            idle_timeout: args.idle_timeout.map(Into::into),
         }
-    }
-
-    pub fn as_add_cors_headers_config(&self) -> AddCorsHeadersConfig {
-        AddCorsHeadersConfig {
-            proxy_to: self.proxy_to,
-            host_allowlist: self.host_allowlist.clone().into_iter().collect(),
-            force_tls: self.force_tls,
-        }
-    }
-}
-
-impl From<ProxyConfig> for AddCorsHeadersConfig {
-    fn from(config: ProxyConfig) -> Self {
-        config.as_add_cors_headers_config()
     }
 }
 

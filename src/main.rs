@@ -29,7 +29,7 @@ fn main() {
 }
 
 fn proxy_service(conf: &Arc<ServerConf>) -> Box<dyn Service> {
-    let config = CONFIG.proxy.as_add_cors_headers_config();
+    let config = CONFIG.proxy.clone();
     let threads = num_cpus::get();
 
     debug!(?config, ?threads, "Creating proxy service");

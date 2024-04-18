@@ -9,12 +9,12 @@ pub(super) struct Args {
     pub pingora: PingoraConfig,
 
     #[clap(flatten)]
-    pub proxy: ProxyArgs,
-
-    #[clap(flatten)]
     pub server: ServerConfig,
 
     /// Print help text
     #[clap(action = ArgAction::Help, long)]
     help: Option<bool>,
+
+    #[clap(flatten)]
+    pub proxy: ProxyArgs,
 }

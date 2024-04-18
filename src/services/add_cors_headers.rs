@@ -192,8 +192,20 @@ impl ProxyHttp for AddCorsHeaders {
         ctx: &mut Self::CTX,
     ) -> Result<()> {
         let _span = ctx.tracing_span.enter();
+        let origin = session.get_header(header::ORIGIN);
 
-        trace!("Starting response filter");
+        trace!(?origin, "Starting response filter");
+
+        if !self.config.origin_allowlist.is_empty()
+            && !origin
+                .and_then(|x| x.to_str().ok())
+                .map(str::to_lowercase)
+                .is_some_and(|x| self.config.origin_allowlist.contains(&x))
+        {
+            debug!(origin = ?origin, "Origin not in allowlist, not adding CORS headers");
+
+            return Ok(());
+        }
 
         {
             let upstream_headers = upstream_response
@@ -216,7 +228,7 @@ impl ProxyHttp for AddCorsHeaders {
 
         upstream_response.append_header(header::VARY, "Origin")?;
 
-        if let Some(origin) = session.get_header(header::ORIGIN) {
+        if let Some(origin) = origin {
             debug!(origin = ?origin, "Adding origin-specific CORS headers");
             upstream_response.insert_header(header::ACCESS_CONTROL_ALLOW_ORIGIN, origin)?;
             upstream_response.insert_header(header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true")?;

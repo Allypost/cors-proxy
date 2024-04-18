@@ -26,6 +26,19 @@ pub struct ProxyArgs {
     )]
     pub host_allowlist: Vec<String>,
 
+    /// Set which origins to add headers to.
+    ///
+    /// By default, all origins are allowed.
+    ///
+    /// For example, `https://allypost.net`, `https://www.allypost.net` or `https://a.allypost.net, https://b.allypost.net`
+    #[clap(
+        short = 'O',
+        long,
+        value_name = "ORIGIN",
+        env = "CORS_PROXY_ORIGIN_ALLOWLIST"
+    )]
+    pub origin_allowlist: Vec<String>,
+
     /// Explicitly set whether to use TLS on first connection.
     ///
     /// By default, TLS is first tried and falls back to plain HTTP.
@@ -89,6 +102,8 @@ pub struct ProxyConfig {
 
     pub host_allowlist: HashSet<String>,
 
+    pub origin_allowlist: HashSet<String>,
+
     pub use_tls: Option<bool>,
 
     pub connection_timeout: Duration,
@@ -101,22 +116,24 @@ impl ProxyConfig {
     fn from_args(args: &ProxyArgs) -> Self {
         Self {
             proxy_to: args.proxy_to,
-            host_allowlist: args
-                .host_allowlist
-                .clone()
-                .into_iter()
-                .flat_map(|x| {
-                    x.split_terminator(',')
-                        .map(str::trim)
-                        .map(str::to_lowercase)
-                        .collect::<Vec<_>>()
-                })
-                .collect(),
+            host_allowlist: Self::parse_comma_list(&args.host_allowlist),
+            origin_allowlist: Self::parse_comma_list(&args.origin_allowlist),
             use_tls: args.use_tls,
             connection_timeout: args.connection_timeout.into(),
             total_connection_timeout: args.total_connection_timeout.into(),
             idle_timeout: args.idle_timeout.map(Into::into),
         }
+    }
+
+    fn parse_comma_list(s: &[String]) -> HashSet<String> {
+        s.iter()
+            .flat_map(|x| {
+                x.split_terminator(',')
+                    .map(str::trim)
+                    .map(str::to_lowercase)
+                    .collect::<Vec<_>>()
+            })
+            .collect()
     }
 }
 

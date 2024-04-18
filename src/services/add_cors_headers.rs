@@ -192,15 +192,20 @@ impl ProxyHttp for AddCorsHeaders {
         ctx: &mut Self::CTX,
     ) -> Result<()> {
         let _span = ctx.tracing_span.enter();
-        let origin = session.get_header(header::ORIGIN);
 
-        trace!(?origin, "Starting response filter");
+        upstream_response.append_header("X-CorsProxy-Request-Id", ctx.request_id.to_string())?;
+
+        let mut vary_headers = vec![header::ORIGIN.to_string()];
+
+        let origin = session.get_header(header::ORIGIN);
+        let origin_str = origin.and_then(|x| x.to_str().ok()).map(str::to_lowercase);
+
+        trace!(?origin, ?upstream_response, "Starting response filter");
 
         if !self.config.origin_allowlist.is_empty()
-            && !origin
-                .and_then(|x| x.to_str().ok())
-                .map(str::to_lowercase)
-                .is_some_and(|x| self.config.origin_allowlist.contains(&x))
+            && !origin_str
+                .as_ref()
+                .is_some_and(|x| self.config.origin_allowlist.contains(x))
         {
             debug!(origin = ?origin, "Origin not in allowlist, not adding CORS headers");
 
@@ -226,30 +231,35 @@ impl ProxyHttp for AddCorsHeaders {
 
         // upstream_response.insert_header(header::ACCESS_CONTROL_MAX_AGE, "1")?;
 
-        upstream_response.append_header(header::VARY, "Origin")?;
-
-        if let Some(origin) = origin {
+        if let Some(origin) = origin_str {
             debug!(origin = ?origin, "Adding origin-specific CORS headers");
             upstream_response.insert_header(header::ACCESS_CONTROL_ALLOW_ORIGIN, origin)?;
             upstream_response.insert_header(header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true")?;
         } else {
             debug!("Adding generic CORS headers");
             upstream_response.insert_header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")?;
-            upstream_response.insert_header(header::ACCESS_CONTROL_ALLOW_HEADERS, "*")?;
-            upstream_response.insert_header(header::ACCESS_CONTROL_ALLOW_METHODS, "*")?;
         }
 
         if let Some(header) = session.get_header(header::ACCESS_CONTROL_REQUEST_HEADERS) {
             trace!(?header, "Adding Access-Control-Request-Headers header");
+            vary_headers.push(header::ACCESS_CONTROL_REQUEST_HEADERS.to_string());
             upstream_response.insert_header(header::ACCESS_CONTROL_ALLOW_HEADERS, header)?;
+        } else {
+            upstream_response.insert_header(header::ACCESS_CONTROL_ALLOW_HEADERS, "*")?;
         }
 
         if let Some(header) = session.get_header(header::ACCESS_CONTROL_REQUEST_METHOD) {
             trace!(?header, "Adding Access-Control-Request-Method header");
+            vary_headers.push(header::ACCESS_CONTROL_REQUEST_METHOD.to_string());
             upstream_response.insert_header(header::ACCESS_CONTROL_ALLOW_METHODS, header)?;
+        } else {
+            upstream_response.insert_header(
+                header::ACCESS_CONTROL_ALLOW_METHODS,
+                "GET,POST,HEAD,PUT,DELETE,PATCH",
+            )?;
         }
 
-        upstream_response.append_header("X-CorsProxy-Request-Id", ctx.request_id.to_string())?;
+        upstream_response.append_header(header::VARY, vary_headers.join(", "))?;
 
         Ok(())
     }

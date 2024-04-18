@@ -1,7 +1,8 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use async_trait::async_trait;
-use http::header;
+use http::{header, Method};
+use once_cell::sync::Lazy;
 use pingora::{http::ResponseHeader, prelude::*};
 use tracing::{debug, field, info, trace, warn};
 
@@ -62,6 +63,26 @@ impl AddCorsHeadersCtx {
         }
     }
 }
+
+const HTTP_METHODS: &[Method] = &[
+    Method::GET,
+    Method::POST,
+    Method::PUT,
+    Method::DELETE,
+    Method::HEAD,
+    Method::OPTIONS,
+    Method::CONNECT,
+    Method::PATCH,
+    Method::TRACE,
+];
+
+static HTTP_METHODS_STR: Lazy<String> = Lazy::new(|| {
+    HTTP_METHODS
+        .iter()
+        .map(Method::as_str)
+        .collect::<Vec<_>>()
+        .join(", ")
+});
 
 #[async_trait]
 impl ProxyHttp for AddCorsHeaders {
@@ -255,7 +276,7 @@ impl ProxyHttp for AddCorsHeaders {
         } else {
             upstream_response.insert_header(
                 header::ACCESS_CONTROL_ALLOW_METHODS,
-                "GET,POST,HEAD,PUT,DELETE,PATCH",
+                HTTP_METHODS_STR.clone(),
             )?;
         }
 
